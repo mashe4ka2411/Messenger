@@ -1,31 +1,65 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.11.35312.102
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ServerS", "ServerS\ServerS.vcxproj", "{41206DB6-01EA-4148-9307-D4E3830E2083}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Debug|x64.ActiveCfg = Debug|x64
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Debug|x64.Build.0 = Debug|x64
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Debug|x86.ActiveCfg = Debug|Win32
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Debug|x86.Build.0 = Debug|Win32
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Release|x64.ActiveCfg = Release|x64
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Release|x64.Build.0 = Release|x64
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Release|x86.ActiveCfg = Release|Win32
-		{41206DB6-01EA-4148-9307-D4E3830E2083}.Release|x86.Build.0 = Release|Win32
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {C0A52473-CCF8-47C0-88B7-B96437A2E461}
-	EndGlobalSection
-EndGlobal
+#pragma comment(lib, "ws2_32.lib")
+#include <winsock2.h>
+#include <iostream>
+
+#pragma warning(disable: 4996)
+
+SOCKET Connections[100];
+int Counter = 0;
+
+void ClientHandler(int index) {
+    char msg[256];
+    while (true) {
+        recv(Connections[index], msg, sizeof(msg), NULL);
+        for (int i = 0; i < Counter; i++) {
+            if (i == index) {
+                continue;
+            }
+
+            send(Connections[i], msg, sizeof(msg), NULL);
+        }
+    }
+}
+
+int main(int argc, char* argv[]) {
+    //WSAStartup
+    WSAData wsaData;
+    WORD DLLVersion = MAKEWORD(2, 1);
+    if (WSAStartup(DLLVersion, &wsaData) != 0) {
+        std::cout << "Error" << std::endl;
+        exit(1);
+    }
+
+    SOCKADDR_IN addr;
+    int sizeofaddr = sizeof(addr);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(1111);
+    addr.sin_family = AF_INET;
+
+    SOCKET sListen = socket(AF_INET, SOCK_STREAM, NULL);
+    bind(sListen, (SOCKADDR*)&addr, sizeof(addr));
+    listen(sListen, SOMAXCONN);
+
+    SOCKET newConnection;
+    for (int i = 0; i < 2; i++) {
+        newConnection = accept(sListen, (SOCKADDR*)&addr, &sizeofaddr);
+
+        if (newConnection == 0) {
+            std::cout << "Error #2\n";
+        }
+        else {
+            std::cout << "Client Connected!\n";
+            char msg[256] = "Write your message!";
+            send(newConnection, msg, sizeof(msg), NULL);
+
+            Connections[i] = newConnection;
+            Counter++;
+            CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(i), NULL, NULL);
+        }
+    }
+
+
+    system("pause");
+
+    return 0;
+}
